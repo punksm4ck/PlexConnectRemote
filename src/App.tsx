@@ -1261,18 +1261,32 @@ export default function App() {
   };
 
   const handleTogglePlayPause = () => {
-    const currentState = activeSessionForClient?.Player?.state || activeClient?.state || 'paused';
+    const mId = activeClient?.machineIdentifier;
+    const stateLocks = ((window as any).__plexStateLocks = (window as any).__plexStateLocks || {});
+    const lockedState = (mId && stateLocks[mId] && Date.now() < stateLocks[mId].until) ? stateLocks[mId].state : null;
+    const currentState = lockedState || activeSessionForClient?.Player?.state || activeClient?.state || 'paused';
     const isPlayingNow = currentState === 'playing';
+    const nextState = isPlayingNow ? 'paused' : 'playing';
     const primaryEndpoint = isPlayingNow ? '/player/playback/pause' : '/player/playback/play';
+
+    if (mId) {
+      stateLocks[mId] = { state: nextState, until: Date.now() + 3500 };
+    }
 
     setActiveSessions((prev) =>
       prev.map((s) =>
-        s.Player?.machineIdentifier === activeClient?.machineIdentifier
+        s.Player?.machineIdentifier === mId
           ? {
               ...s,
-              Player: { ...s.Player, state: isPlayingNow ? 'paused' : 'playing' }
+              Player: { ...s.Player, state: nextState }
             }
           : s
+      )
+    );
+
+    setDiscoveredClients((prev) =>
+      prev.map((c) =>
+        c.machineIdentifier === mId ? { ...c, state: nextState } : c
       )
     );
 
@@ -1621,7 +1635,7 @@ http.server.ThreadingHTTPServer(("0.0.0.0", 8765), Handler).serve_forever()
         </div>
       </header>
 
-      {needsSetupBanner && (
+      {!globalToken && needsSetupBanner && (
         <div className="bg-[#12141c] border-b border-[#ff6a00]/40 px-4 py-4">
           <div className="max-w-5xl mx-auto space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -2038,7 +2052,7 @@ http.server.ThreadingHTTPServer(("0.0.0.0", 8765), Handler).serve_forever()
                         className="w-16 h-16 rounded-full bg-gradient-to-br from-[#ff6a00] to-amber-500 hover:from-[#ff7b1a] hover:to-amber-400 text-black flex items-center justify-center shadow-xl shadow-[#ff6a00]/25 active:scale-95 transition"
                         title="Play / Pause"
                       >
-                        {activeSessionForClient?.Player?.state === 'playing' ? (
+                        {(activeSessionForClient?.Player?.state || activeClient?.state) === 'playing' ? (
                           <Pause className="w-7 h-7 fill-black" />
                         ) : (
                           <Play className="w-7 h-7 fill-black ml-0.5" />
