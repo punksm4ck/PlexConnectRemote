@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Plex Connect</string>
+    <string name="title_activity_main">Plex Connect</string>
+    <string name="package_name">com.desklogix.plexconnect</string>
+    <string name="custom_url_scheme">com.desklogix.plexconnect</string>
+</resources>

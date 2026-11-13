@@ -1,0 +1,13 @@
+{
+  "appId": "com.desklogix.plexconnect",
+  "appName": "Plex Connect",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "cleartext": true,
+    "allowNavigation": ["*"]
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
