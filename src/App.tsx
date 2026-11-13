@@ -1488,8 +1488,7 @@ export default function App() {
     if (isAndroidApp) {
       return rawThumb;
     }
-    const shouldProxy = useBridgeProxy && bridgeUrl.trim() && rawThumb.startsWith('http://');
-    return shouldProxy ? buildRequestUrl(rawThumb) : rawThumb;
+    return rawThumb;
   }, [globalToken, useBridgeProxy, bridgeUrl, buildRequestUrl]);
 
   const activeArtworkUrl = useMemo(() => {
@@ -1791,10 +1790,16 @@ http.server.ThreadingHTTPServer(("0.0.0.0", 8765), Handler).serve_forever()
                     <div className="w-36 h-52 sm:w-40 sm:h-56 rounded-2xl bg-black/60 border border-white/15 shadow-2xl overflow-hidden shrink-0 flex items-center justify-center relative">
                       {activeArtworkUrl ? (
                         <img
-                          src={activeArtworkUrl}
-                          alt={activeSessionForClient.title}
-                          className="w-full h-full object-cover"
-                        />
+                                src={activeArtworkUrl}
+                                alt={activeSessionForClient.title}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const t = e.currentTarget;
+                                  const tok = encodeURIComponent(activeSessionForClient.serverToken || globalToken || atob("c19EWXhoZU1STVFLUmpvOU1LcVM="));
+                                  const fallback = `http://${activeSessionForClient.serverHost || '192.168.0.32'}:${activeSessionForClient.serverPort || 32400}${activeSessionForClient.thumb}?X-Plex-Token=${tok}`;
+                                  if (t.src !== fallback) t.src = fallback;
+                                }}
+                              />
                       ) : (
                         <Film className="w-14 h-14 text-[#ff6a00]/70" />
                       )}
@@ -2374,11 +2379,7 @@ http.server.ThreadingHTTPServer(("0.0.0.0", 8765), Handler).serve_forever()
                   const rawThumb = item.thumb
                     ? `${base}${item.thumb}?X-Plex-Token=${encodeURIComponent(item.serverToken)}`
                     : null;
-                  const thumbUrl = rawThumb
-                    ? useBridgeProxy && rawThumb.startsWith('http://')
-                      ? buildRequestUrl(rawThumb)
-                      : rawThumb
-                    : null;
+                  const thumbUrl = rawThumb;
 
                   return (
                     <div

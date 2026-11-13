@@ -1,6 +1,6 @@
 import http.server, urllib.request, urllib.parse, json
 
-TOKEN_DEFAULT = "YOUR_PLEX_TOKEN_HERE"
+TOKEN_DEFAULT = "s_DYxheMRMQKRvo9MKqS"
 
 class Bridge(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args): pass
