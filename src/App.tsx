@@ -945,30 +945,56 @@ export default function App() {
     );
 
     setServerDiagnostics(diagMap);
-    setActiveSessions(gatheredSessions);
+    const nowTs = Date.now();
+    const stateLocks = (window as any).__plexStateLocks || {};
+    const scrubLock = (window as any).__plexScrubLock;
+
+    const stabilizedSessions = gatheredSessions.map((s) => {
+      const mId = s.Player?.machineIdentifier;
+      let updated = s;
+      if (mId && stateLocks[mId] && nowTs < stateLocks[mId].until) {
+        updated = {
+          ...updated,
+          Player: { ...updated.Player, state: stateLocks[mId].state }
+        };
+      }
+      if (mId && scrubLock && scrubLock.machineId === mId && nowTs < scrubLock.until) {
+        updated = { ...updated, viewOffset: scrubLock.offset };
+      }
+      return updated;
+    });
+
+    if (anySuccess || stabilizedSessions.length > 0) {
+      setActiveSessions(stabilizedSessions);
+    }
 
     if (anySuccess) {
-      const mergedClients = Array.from(gatheredClientsMap.values());
+      const mergedClients = Array.from(gatheredClientsMap.values()).map((c) => {
+        const mId = c.machineIdentifier;
+        if (mId && stateLocks[mId] && nowTs < stateLocks[mId].until) {
+          return { ...c, state: stateLocks[mId].state };
+        }
+        return c;
+      });
       setDiscoveredClients((prev) => {
         const map = new Map();
-        prev.forEach((p) => map.set(p.machineIdentifier, { ...p, state: 'idle' }));
+        prev.forEach((p) => {
+          const mId = p.machineIdentifier;
+          const lockedState = (mId && stateLocks[mId] && nowTs < stateLocks[mId].until) ? stateLocks[mId].state : 'idle';
+          map.set(mId, { ...p, state: lockedState });
+        });
         mergedClients.forEach((m) => map.set(m.machineIdentifier, m));
         return Array.from(map.values());
       });
 
       setSelectedClientMachineId((currentId) => {
+        if (currentId) return currentId;
         const playingSess =
-          gatheredSessions.find((s) => s.Player?.state === 'playing') || gatheredSessions[0];
+          stabilizedSessions.find((s) => s.Player?.state === 'playing') || stabilizedSessions[0];
         if (playingSess && playingSess.Player?.machineIdentifier) {
-          const currentHasActiveSession = gatheredSessions.some(
-            (s) => s.Player?.machineIdentifier === currentId
-          );
-          if (!currentId || !currentHasActiveSession) {
-            return playingSess.Player.machineIdentifier;
-          }
+          return playingSess.Player.machineIdentifier;
         }
-        if (currentId && gatheredClientsMap.has(currentId)) return currentId;
-        if (!currentId && mergedClients.length > 0) {
+        if (mergedClients.length > 0) {
           return mergedClients[0].machineIdentifier;
         }
         return currentId;
@@ -985,8 +1011,8 @@ export default function App() {
           reachableCount > 0
             ? `200 LIVE (${modeTag})`
             : 'LAN PNA BLOCKED',
-        text: `${gatheredSessions.length} active stream(s) • ${reachableCount}/${servers.length} server(s) reachable`,
-        corsBlocked: anyCorsError || reachableCount === 0
+        text: `${stabilizedSessions.length} active stream(s) • ${reachableCount}/${servers.length} server(s) reachable`,
+        corsBlocked: reachableCount === 0 && anyCorsError
       });
     } else if (anyCorsError) {
       setLastHttpStatus({
